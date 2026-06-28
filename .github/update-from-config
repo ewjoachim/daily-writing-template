@@ -1,0 +1,313 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# dependencies = [
+#   "markdown-it-py",
+#   "mdformat",
+#   "mdformat-gfm-alerts",
+#   "ruamel.yaml",
+# ]
+# ///
+"""
+Update various project files based on the config. This is a bit of magic that aims
+at having as much as possible configurable in the CMS.
+"""
+
+import argparse
+import dataclasses
+import datetime
+import functools
+import logging
+import os
+import pathlib
+import subprocess
+import urllib.parse
+import zoneinfo
+from typing import Any, Protocol, Self
+
+import markdown_it
+import mdformat_gfm_alerts.plugin as alerts_plugin
+import tomllib
+from markdown_it.tree import SyntaxTreeNode
+from mdformat.renderer import MDRenderer
+from ruamel.yaml import YAML
+
+workspace = pathlib.Path(__file__).parents[1]
+config = tomllib.loads((workspace / "daily-writing.toml").read_text())
+
+logger = logging.getLogger()
+
+
+@dataclasses.dataclass
+class Config:
+    site_name: str | None
+    description: str | None
+    timezone: str | None
+    copyright: str | None
+
+    @classmethod
+    def from_dict(cls, config_dict: dict[str, Any]) -> Self:
+
+        return cls(
+            site_name=config_dict.get("site_name"),
+            description=config_dict.get("description"),
+            timezone=config_dict.get("timezone"),
+            copyright=config_dict.get("copyright"),
+        )
+
+
+@dataclasses.dataclass
+class Repository:
+    owner: str
+    name: str
+
+    @classmethod
+    def from_full_name(cls, full_name: str) -> Self:
+        owner, name = full_name.split("/", 1)
+        return cls(owner=owner, name=name)
+
+
+def get_raw_content(node: SyntaxTreeNode) -> str:
+    return "".join(
+        getattr(n, "content", "") for n in node.walk() if not n.type == "inline"
+    )
+
+
+class Transformer(Protocol):
+    def __call__(self, *, root: SyntaxTreeNode) -> None: ...
+
+
+@functools.cache
+def get_md_parser() -> markdown_it.MarkdownIt:
+    parser = markdown_it.MarkdownIt("commonmark")
+    alerts_plugin.update_mdit(parser)
+    return parser
+
+
+def update_readme(
+    workspace: pathlib.Path,
+    transformers: list[Transformer],
+):
+    # Parse
+    readme_path = workspace / "README.md"
+
+    root = SyntaxTreeNode(get_md_parser().parse(readme_path.read_text()))
+
+    for transformer in transformers:
+        transformer(root=root)
+
+    # Round-trip
+    options = dict(get_md_parser().options)
+    options.setdefault("parser_extension", []).append(alerts_plugin)
+    result = MDRenderer().render(root.to_tokens(), options=options, env={})
+    readme_path.write_text(result)
+
+
+def update_readme_title(*, root: SyntaxTreeNode, config: Config):
+
+    if not config.site_name:
+        logger.info(
+            "README.md: Title not found in config.",
+        )
+        return
+
+    new_title_node = SyntaxTreeNode(get_md_parser().parse(config.site_name)).children[0]
+    new_title_content = get_raw_content(new_title_node)
+
+    # Mutate
+    for node in root.children:
+        # h1
+        if new_title_node and node.type == "heading" and node.tag[1:] == "1":
+            # update title from config
+            current_title_content = get_raw_content(node)
+            if current_title_content == new_title_content:
+                logger.info("README.md: Title already correct, skipping")
+                return
+
+            node.children = new_title_node.children
+            logger.info(
+                f"README.md: Updating title from: '{current_title_content}' to '{new_title_content}'",
+            )
+
+            return
+
+
+def update_admonition(root: SyntaxTreeNode):
+
+    if (workspace / ".github/workflows/auto-setup.yml").exists():
+        return
+
+    for node in root.children:
+        if node.type == "gfm_alert" and node.meta["title"] == "IMPORTANT":
+            root.children.remove(node)
+            logger.info("README.md: Removing auto-setup admonition")
+            return
+
+
+def update_admonition_init(root: SyntaxTreeNode):
+    content = """[**Click here to configure your project**](../../issues/new?template=auto-setup.yml&title=Project+Autoconfig)"""
+    for node in root.children:
+        if node.type == "gfm_alert" and node.meta["title"] == "IMPORTANT":
+            node.children = SyntaxTreeNode(get_md_parser().parse(content)).children
+
+            return
+
+
+def add_description(root: SyntaxTreeNode, config: Config):
+    if not config.description:
+        logger.info(
+            "README.md: Description not found in config. Not replacing content."
+        )
+        return
+    if any(node.type == "paragraph" for node in root.children):
+        logger.info("README.md: Non-empty content. Not replacing it.")
+        return
+
+    description_node = SyntaxTreeNode(get_md_parser().parse(config.description))
+    root.children.extend(description_node.children)
+    logger.info("README.md: Empty content, adding non-empty description content")
+
+
+def update_cron(workspace: pathlib.Path, config: Config):
+    if not config.timezone:
+        logger.info(".github/workflows/publish.yml: Timezone not found in config.")
+        return
+
+    timezone = zoneinfo.ZoneInfo(config.timezone)
+
+    # Find UTC offsets (January and July)
+    offsets: set[datetime.timedelta] = set()
+    for month in (1, 7):
+        local = datetime.datetime(
+            year=datetime.datetime.now().year,
+            month=month,
+            day=1,
+            tzinfo=timezone,
+        )
+        offset = local.utcoffset()
+        assert offset is not None
+        offsets.add(offset)
+
+    # Find all crons (-UTC offset + 1 minute)
+    new_crons: list[str] = []
+    for offset in offsets:
+        minutes = int((datetime.timedelta(seconds=60) - offset).total_seconds()) // 60
+        hours = (minutes // 60) % 24
+        minutes = minutes % 60
+        new_crons.append(f"{minutes} {hours} * * *")
+
+    # Write to publish.yml
+    publish_path = workspace / ".github" / "workflows" / "publish.yml"
+    yaml = YAML()
+    yaml.preserve_quotes = True
+    data = yaml.load(publish_path.read_text())
+    existing_crons = [
+        s.get("cron", None) for s in data.get("on", {}).get("schedule", [])
+    ]
+    if set(new_crons) == set(existing_crons):
+        logger.info(".github/workflows/publish.yml: Crons already correct, skipping.")
+        return
+
+    data["on"]["schedule"] = [{"cron": cron} for cron in sorted(new_crons)]
+    yaml.dump(data, publish_path)
+
+
+def update_license(workspace: pathlib.Path, config: Config):
+    if not config.copyright:
+        logger.info(
+            "LICENSE: Copyright not found in config.",
+        )
+        return
+
+    license_path = workspace / "LICENSE"
+    if license_path.exists():
+        logger.info(
+            "LICENSE: file already exists, skipping.",
+        )
+        return
+
+    license_path.write_text(config.copyright)
+    logger.info(
+        "LICENSE: Wrote file",
+    )
+
+
+def update_user_manual(workspace: pathlib.Path, repository: Repository):
+    user_manual_path = workspace / "USER_MANUAL.md"
+    user_manual = user_manual_path.read_text()
+
+    if "{github-username}" not in user_manual:
+        logger.info(
+            "USER_MANUAL.md: Placeholder not found, skipping",
+        )
+        return
+
+    user_manual = user_manual.replace("{github-username}", repository.owner).replace(
+        "{github-repository-name}", repository.name
+    )
+    user_manual_path.write_text(user_manual)
+    logger.info("USER_MANUAL.md: Replaced placeholders")
+
+
+@dataclasses.dataclass
+class Args:
+    init: bool
+    repository: str | None
+
+
+def get_default_repository():
+    if "GITHUB_REPOSITORY" in os.environ:
+        return os.environ["GITHUB_REPOSITORY"]
+
+    try:
+        origin = subprocess.check_output(
+            ["git", "remote", "get-url", "origin"], text=True
+        )
+    except subprocess.SubprocessError:
+        pass
+    else:
+        return urllib.parse.urlparse(origin).path.lstrip("/").removesuffix(".git")
+    return None
+
+
+def main():
+    logging.basicConfig(format="%(level)s: %(message)s")
+    parser = argparse.ArgumentParser("update-from-config")
+    parser.add_argument("--init", default=False, action="store_true")
+    parser.add_argument(
+        "--repository", default=get_default_repository(), action="store"
+    )
+
+    args = Args(**vars(parser.parse_args()))
+
+    if args.repository == "ewjoachim/daily-writing-template":
+        logger.info("Pre-fork template, skipping")
+        return
+
+    workspace = pathlib.Path(__file__).parents[1]
+    config = Config.from_dict(
+        tomllib.loads((workspace / "daily-writing.toml").read_text())
+    )
+    readme_transformers: list[Transformer]
+    if args.init:
+        readme_transformers = [update_admonition_init]
+    else:
+        readme_transformers = [
+            functools.partial(update_readme_title, config=config),
+            update_admonition,
+            functools.partial(add_description, config=config),
+        ]
+
+    update_readme(
+        workspace=workspace,
+        transformers=readme_transformers,
+    )
+    if args.init and args.repository:
+        repository = Repository.from_full_name(args.repository)
+        update_user_manual(workspace=workspace, repository=repository)
+    else:
+        update_cron(workspace=workspace, config=config)
+        update_license(workspace=workspace, config=config)
+
+
+if __name__ == "__main__":
+    main()

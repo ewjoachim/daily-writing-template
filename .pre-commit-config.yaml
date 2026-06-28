@@ -1,0 +1,41 @@
+ci:
+  autoupdate_schedule: quarterly
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: builtin
+    hooks:
+      # File names
+      - id: check-case-conflict # File formats
+      - id:
+          check-toml
+          # Executables
+          # Git shenanigans
+      - id: check-merge-conflict
+      - id:
+          check-added-large-files
+          # Python issues
+          # Whitespace
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.11.3
+    hooks:
+      - id: uv-lock
+
+  - repo: local
+    hooks:
+      - id: normalize
+        name: normalize
+        entry: uv run --no-active daily-writing normalize
+        types: [markdown]
+        language: python
+
+      - id: update-from-config
+        name: Update repo from configuration
+        entry: .github/update-from-config
+        files: ^(daily-writing\.toml|README\.md|\.github/workflows/publish\.yml|LICENSE)$
+        language: script
+        pass_filenames: false

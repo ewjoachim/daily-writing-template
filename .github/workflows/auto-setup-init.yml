@@ -1,0 +1,40 @@
+name: auto-setup-init
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  auto-setup:
+    if: github.repository != 'ewjoachim/daily-writing-template'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up UV
+        id: setup-uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: false
+
+      - name: Update site configuration
+        run: uv run --script -- .github/update-from-config --init
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: apply auto-setup from issue" || echo "No changes to commit"
+          git push
+
+      - name: Create label
+        run: gh label create 'auto-setup' --color 33a637 --force
+        env:
+          GH_TOKEN: ${{ github.token }}
