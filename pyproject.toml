@@ -1,0 +1,10 @@
+[project]
+name = "daily-writing-project"
+version = "0.1.0"
+dependencies = ["daily-writing>=2026.6.1"]
+[dependency-groups]
+lint = ["flowmark>=0.5.3"]
+local = ["daily-writing[server]"]
+
+[tool.uv]
+package = false
