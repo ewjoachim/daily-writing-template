@@ -23,7 +23,7 @@ jobs:
         run: uv sync --all-groups --all-extras
 
       - name: Run prek
-        uses: j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16 # v2.0.6
+        uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0
         env:
           # Lets update-from-config's `gh api .../pages` check authenticate;
           # contents:read (above) is enough to read Pages status.
