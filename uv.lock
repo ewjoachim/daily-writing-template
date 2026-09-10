@@ -91,7 +91,7 @@ wheels = [
 
 [[package]]
 name = "daily-writing"
-version = "2026.7.5"
+version = "2026.7.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "babel" },
@@ -115,9 +115,9 @@ dependencies = [
     { name = "tzlocal" },
     { name = "yarl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fb/5e/9bb08cd0fdf9a934a78beff2d6cea06c8413185649d44b7d98bb37a22818/daily_writing-2026.7.5.tar.gz", hash = "sha256:3edbd2932d876b8834d0d30650f57cfd7da591c6e604fdaef9f215b658c0726e", size = 959899, upload-time = "2026-08-08T17:47:56.308Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f8/88/9f960e2698f47cbaa3452f1fe8ac6c4c67be8bca70e747b38268a6666bd9/daily_writing-2026.7.6.tar.gz", hash = "sha256:8a1034f434099ec0d25b1ba8f47cb55ae3b3d217300181d145875e4b579d8a70", size = 961189, upload-time = "2026-08-09T09:56:43.054Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/04/41/810fc87141a452bde22a97dc6048f685e7f3a1c98f85e6de88f8547bfd4e/daily_writing-2026.7.5-py3-none-any.whl", hash = "sha256:d246dbffb54796666e41e2fafb6b9619d41d17e0a883ea2c9c5111ed11ae78c9", size = 42251, upload-time = "2026-08-08T17:47:55.081Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/9c/5fab18638e7e823fdf235ad5a94b7d65c08314d5ac90b8c04cbca0112f25/daily_writing-2026.7.6-py3-none-any.whl", hash = "sha256:874fe52d0838aa261f4b2bd58f3aaa225447fad3b17ef4100772f0dcff7ddaef", size = 42894, upload-time = "2026-08-09T09:56:41.603Z" },
 ]
 
 [package.optional-dependencies]
@@ -146,10 +146,10 @@ local = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "daily-writing", specifier = ">=2026.6.1" }]
+requires-dist = [{ name = "daily-writing", specifier = ">=2026.7.6" }]
 
 [package.metadata.requires-dev]
-lint = [{ name = "flowmark", specifier = ">=0.5.3" }]
+lint = [{ name = "flowmark", specifier = ">=0.8.0" }]
 local = [{ name = "daily-writing", extras = ["server"] }]
 
 [[package]]
@@ -189,7 +189,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/6b/59/be0a6f852b5dfbf19
 
 [[package]]
 name = "flowmark"
-version = "0.7.3"
+version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "marko" },
@@ -198,9 +198,9 @@ dependencies = [
     { name = "strif" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9e/85/5fc05be96274bcf59c2931ad1ac82832ae50fd6000028755ec3099fd93ae/flowmark-0.7.3.tar.gz", hash = "sha256:4c111f85aaff31e8f4dfa3b49d3a5f472fac8e2b8e19581d913c384334eabb9f", size = 593326, upload-time = "2026-07-15T06:05:32.929Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/bb/7664d9ff38e883814d7945303848960a577b0fc911acc1f2dd4dc3d4e85f/flowmark-0.8.0.tar.gz", hash = "sha256:121f89edb8fca09d3b0d72716e53671457b5ed909eb21c17120ec5850bf053c1", size = 815071, upload-time = "2026-09-04T11:38:55.601Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bc/6f/d7bcd7313eb231a1aea24d29ee9b6bb832d05d12ca290b58a9403e395dd5/flowmark-0.7.3-py3-none-any.whl", hash = "sha256:7ccef40cef0c0760390caccd9ab9d95314ebd3e42472229c2dbbf1f331b320e8", size = 86437, upload-time = "2026-07-15T06:05:31.442Z" },
+    { url = "https://files.pythonhosted.org/packages/51/b9/3d3dfaf9c0b5317db879736e0da192e4288d4210f0061adb9bf942dab554/flowmark-0.8.0-py3-none-any.whl", hash = "sha256:628c9f52b63cdfb78112196ae68c36f6107cc2ee0afdd55d631242a7eb9d15da", size = 120981, upload-time = "2026-09-04T11:38:54.348Z" },
 ]
 
 [[package]]
